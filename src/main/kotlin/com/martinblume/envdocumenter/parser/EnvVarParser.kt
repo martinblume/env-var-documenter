@@ -1,9 +1,12 @@
 package com.martinblume.envdocumenter.parser
 
 import com.martinblume.envdocumenter.model.EnvVarEntry
+import org.gradle.api.logging.Logging
 import java.io.File
 
 class EnvVarParser {
+
+    private val logger = Logging.getLogger(EnvVarParser::class.java)
 
     // -------------------------------------------------------------------------
     // Regexes
@@ -104,7 +107,17 @@ class EnvVarParser {
 
             val varName: String? = when {
                 literalMatch != null -> literalMatch.groupValues[1]
-                else -> constantMap[constRefMatch!!.groupValues[1]] // null = unresolved ref → skip
+                else -> {
+                    val constName = constRefMatch!!.groupValues[1]
+                    val resolved = constantMap[constName]
+                    if (resolved == null) {
+                        logger.warn(
+                            "env-var-documenter: Unresolved constant reference '$constName' " +
+                                "at $relativeSourcePath:$lineNumber — entry will be skipped."
+                        )
+                    }
+                    resolved
+                }
             }
             if (varName == null) continue
 

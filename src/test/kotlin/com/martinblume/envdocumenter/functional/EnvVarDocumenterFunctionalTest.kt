@@ -76,6 +76,33 @@ class EnvVarDocumenterFunctionalTest {
     }
 
     @Test
+    fun `warns when constant reference cannot be resolved`() {
+        setup("""val x = System.getenv(UNDEFINED_CONST)""")
+
+        val result = run("generateEnvVarDocs", "--warning-mode=all")
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generateEnvVarDocs")?.outcome)
+        assertTrue(
+            result.output.contains("Unresolved constant reference 'UNDEFINED_CONST'"),
+            "Expected unresolved-constant warning in output:\n${result.output}"
+        )
+    }
+
+    @Test
+    fun `does not warn about unresolved constant when all references resolve`() {
+        setup("""
+            const val DB_HOST_KEY = "DB_HOST"
+            val host = System.getenv(DB_HOST_KEY) ?: "localhost"
+        """.trimIndent())
+
+        val result = run("generateEnvVarDocs", "--warning-mode=all")
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generateEnvVarDocs")?.outcome)
+        assertFalse(
+            result.output.contains("Unresolved constant reference"),
+            "Expected no unresolved-constant warning in output:\n${result.output}"
+        )
+    }
+
+    @Test
     fun `task is up-to-date on second run`() {
         setup("""val x = System.getenv("MY_VAR")""")
         run("generateEnvVarDocs")

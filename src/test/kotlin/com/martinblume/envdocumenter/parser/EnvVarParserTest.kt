@@ -68,6 +68,14 @@ class EnvVarParserTest {
     }
 
     @Test
+    fun `skipsUnresolvedConstantReference`() {
+        // UNDEFINED_CONST is SCREAMING_SNAKE_CASE but never defined as a const val
+        val file = kt("App", """val x = System.getenv(UNDEFINED_CONST)""")
+        val entries = parser.parse(listOf(file))
+        assertTrue(entries.isEmpty())
+    }
+
+    @Test
     fun `deduplicatesByName`() {
         val f1 = kt("A", """val x = System.getenv("MY_VAR")""")
         val f2 = kt("B", """val x = System.getenv("MY_VAR")""")
