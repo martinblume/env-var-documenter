@@ -82,6 +82,30 @@ class EnvVarParser {
         return map
     }
 
+    /**
+     * Returns the index of the first `//` on [line] that is not inside a double-quoted string
+     * literal, or -1 if no such comment marker exists.
+     *
+     * Handles escaped characters (`\"`, `\\`) so that a quote preceded by a backslash does not
+     * toggle the "inside string" state.
+     */
+    internal fun findLineCommentStart(line: String): Int {
+        var inString = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            if (inString) {
+                if (c == '\\') i++ // skip the escaped character
+                else if (c == '"') inString = false
+            } else {
+                if (c == '"') inString = true
+                else if (c == '/' && i + 1 < line.length && line[i + 1] == '/') return i
+            }
+            i++
+        }
+        return -1
+    }
+
     /** Pass 2: find all System.getenv() calls in a single file's pre-read lines. */
     internal fun parseFile(
         file: File,
@@ -102,7 +126,9 @@ class EnvVarParser {
             val activeMatch = literalMatch ?: constRefMatch ?: continue
 
             // Skip calls that appear after a `//` line comment on the same line.
-            val commentStart = line.indexOf("//")
+            // Uses findLineCommentStart() rather than indexOf("//") to avoid false positives
+            // when "//" appears inside a string literal before the getenv() call.
+            val commentStart = findLineCommentStart(line)
             if (commentStart != -1 && commentStart < activeMatch.range.first) continue
 
             val varName: String? = when {

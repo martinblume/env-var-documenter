@@ -199,6 +199,55 @@ class EnvVarParserTest {
         assertEquals("REAL_VAR", entries[0].name)
     }
 
+    @Test
+    fun `getenvWithUrlDefaultContainingDoubleSlashIsDetected`() {
+        val file = kt("App", """val url = System.getenv("API_URL") ?: "http://localhost:8080"""")
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("API_URL", entries[0].name)
+        assertEquals("http://localhost:8080", entries[0].default)
+    }
+
+    @Test
+    fun `doubleSlashInsideStringLiteralBeforeGetenvDoesNotCauseSkip`() {
+        val file = kt("App", """val x = mapOf("url" to "http://example.com", "host" to System.getenv("DB_HOST"))""")
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("DB_HOST", entries[0].name)
+    }
+
+    // -------------------------------------------------------------------------
+    // findLineCommentStart unit tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `findLineCommentStart returns -1 when no comment present`() {
+        assertEquals(-1, parser.findLineCommentStart("""val x = System.getenv("FOO")"""))
+    }
+
+    @Test
+    fun `findLineCommentStart returns index of comment outside string`() {
+        val line = """val x = System.getenv("FOO") // comment"""
+        assertEquals(line.indexOf("//"), parser.findLineCommentStart(line))
+    }
+
+    @Test
+    fun `findLineCommentStart ignores double slash inside string literal`() {
+        assertEquals(-1, parser.findLineCommentStart("""val x = "http://example.com""""))
+    }
+
+    @Test
+    fun `findLineCommentStart ignores double slash inside string but finds real comment after`() {
+        val line = """val x = "http://example.com" // real comment"""
+        assertEquals(line.lastIndexOf("//"), parser.findLineCommentStart(line))
+    }
+
+    @Test
+    fun `findLineCommentStart handles escaped quote inside string`() {
+        // The \" does not close the string, so the // after it is still inside the string
+        assertEquals(-1, parser.findLineCommentStart("""val x = "say \"hello // world\""""))
+    }
+
     // -------------------------------------------------------------------------
     // Multi-line Elvis (#5)
     // -------------------------------------------------------------------------
