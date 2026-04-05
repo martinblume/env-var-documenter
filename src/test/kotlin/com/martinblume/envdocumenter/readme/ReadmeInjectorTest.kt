@@ -211,4 +211,52 @@ class ReadmeInjectorTest {
         injector.inject(file, listOf(entry("DOCUMENTED_VAR", description = "My description")))
         assertTrue(file.readText().contains("| DOCUMENTED_VAR | My description |"))
     }
+
+    // ── Markdown escaping ──────────────────────────────────────────────────────
+
+    @Test
+    fun `backslashInDescriptionIsEscaped`() {
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = """C:\Users\foo""")))
+        // Each \ must be doubled so it renders as a literal backslash in Markdown
+        assertTrue(file.readText().contains("""C:\\Users\\foo"""), file.readText())
+    }
+
+    @Test
+    fun `asteriskInDescriptionIsEscaped`() {
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = "*verbose*")))
+        assertTrue(file.readText().contains("""\*verbose\*"""), file.readText())
+    }
+
+    @Test
+    fun `underscoreInDescriptionIsEscaped`() {
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = "snake_case")))
+        assertTrue(file.readText().contains("""snake\_case"""), file.readText())
+    }
+
+    @Test
+    fun `backtickInDescriptionIsEscaped`() {
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = "`true`")))
+        assertTrue(file.readText().contains("""\`true\`"""), file.readText())
+    }
+
+    @Test
+    fun `openBracketInDescriptionIsEscaped`() {
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = "[optional]")))
+        assertTrue(file.readText().contains("""\[optional]"""), file.readText())
+    }
+
+    @Test
+    fun `backslashFollowedByPipeIsCorrectlyEscaped`() {
+        // Input: \ followed by | (2 chars)
+        // Expected in file: \\ followed by \| (4 chars: \\  +  \|)
+        // In a raw string: \\\| (3 backslashes + pipe)
+        val file = readme("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->")
+        injector.inject(file, listOf(entry("VAR", description = """\|""")))
+        assertTrue(file.readText().contains("""\\\|"""), file.readText())
+    }
 }

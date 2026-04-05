@@ -9,6 +9,7 @@ A Gradle plugin that scans your Kotlin source files for `System.getenv()` calls 
 - Reads KDoc comments above `getenv()` calls for descriptions, defaults, and required flags
 - Infers `required` and `default` from Elvis operators (`?: "fallback"`, `?: throw ...`)
 - Deduplicates entries when the same variable is read in multiple places
+- Escapes Markdown special characters (`\`, `|`, `*`, `_`, `` ` ``, `[`) in descriptions and default values so they render as literal text
 - `generateEnvVarDocs` task writes the table; `verifyEnvVarDocs` task fails CI if the table is stale
 
 ## Setup

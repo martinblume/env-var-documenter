@@ -89,8 +89,13 @@ class ReadmeInjector(
 
     private fun escapeMarkdown(text: String): String =
         text
-            .replace("\r\n", " ")  // Windows line endings → space
-            .replace('\n', ' ')    // Unix newlines → space
-            .replace('\r', ' ')    // Bare CR → space
-            .replace("|", "\\|")
+            .replace("\\", "\\\\") // 1. backslash FIRST — must precede all replacements that introduce a leading `\`
+            .replace("\r\n", " ")  // 2. Windows line endings → space (before \r / \n individually)
+            .replace('\n', ' ')    // 3. Unix newlines → space
+            .replace('\r', ' ')    // 4. Bare Carriage Return → space
+            .replace("|", "\\|")   // 5. pipe — breaks table cell boundaries
+            .replace("*", "\\*")   // 6. asterisk — bold / italic
+            .replace("_", "\\_")   // 7. underscore — bold / italic
+            .replace("`", "\\`")   // 8. backtick — inline code span
+            .replace("[", "\\[")
 }
