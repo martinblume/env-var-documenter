@@ -13,7 +13,7 @@ class EnvVarParser {
     // -------------------------------------------------------------------------
 
     private val constValRegex = Regex(
-        """(?:private\s+|internal\s+|public\s+|protected\s+)?const\s+val\s+(\w+)\s*=\s*"([^"]*)""""
+        """(?:(?:private|internal|public|protected)\s+)*const\s+val\s+(\w+)\s*=\s*"([^"]*)""""
     )
 
     private val getenvLiteralRegex = Regex(

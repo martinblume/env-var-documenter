@@ -10,7 +10,7 @@ class EnvVarParserTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun kt(name: String, content: String): File =
+    private fun kotlinFile(name: String, content: String): File =
         File(tempDir, "$name.kt").also { it.writeText(content) }
 
     private val parser = EnvVarParser()
@@ -21,7 +21,7 @@ class EnvVarParserTest {
 
     @Test
     fun `parsesLiteralGetenv`() {
-        val file = kt("App", """val x = System.getenv("DB_HOST")""")
+        val file = kotlinFile("App", """val x = System.getenv("DB_HOST")""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("DB_HOST", entries[0].name)
@@ -31,7 +31,7 @@ class EnvVarParserTest {
 
     @Test
     fun `parsesElvisDefault`() {
-        val file = kt("App", """val x = System.getenv("PORT") ?: "8080"""")
+        val file = kotlinFile("App", """val x = System.getenv("PORT") ?: "8080"""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("PORT", entries[0].name)
@@ -41,7 +41,7 @@ class EnvVarParserTest {
 
     @Test
     fun `parsesElvisThrow`() {
-        val file = kt("App", """val x = System.getenv("SECRET") ?: throw IllegalStateException("missing")""")
+        val file = kotlinFile("App", """val x = System.getenv("SECRET") ?: throw IllegalStateException("missing")""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("SECRET", entries[0].name)
@@ -51,7 +51,7 @@ class EnvVarParserTest {
 
     @Test
     fun `resolvesConstantReference`() {
-        val file = kt("Config", """
+        val file = kotlinFile("Config", """
             const val DB_URL_KEY = "DATABASE_URL"
             val url = System.getenv(DB_URL_KEY)
         """.trimIndent())
@@ -62,7 +62,7 @@ class EnvVarParserTest {
 
     @Test
     fun `ignoresLowerCaseIdentifierReference`() {
-        val file = kt("App", """val x = System.getenv(someVariable)""")
+        val file = kotlinFile("App", """val x = System.getenv(someVariable)""")
         val entries = parser.parse(listOf(file))
         assertTrue(entries.isEmpty())
     }
@@ -70,15 +70,15 @@ class EnvVarParserTest {
     @Test
     fun `skipsUnresolvedConstantReference`() {
         // UNDEFINED_CONST is SCREAMING_SNAKE_CASE but never defined as a const val
-        val file = kt("App", """val x = System.getenv(UNDEFINED_CONST)""")
+        val file = kotlinFile("App", """val x = System.getenv(UNDEFINED_CONST)""")
         val entries = parser.parse(listOf(file))
         assertTrue(entries.isEmpty())
     }
 
     @Test
     fun `deduplicatesByName`() {
-        val f1 = kt("A", """val x = System.getenv("MY_VAR")""")
-        val f2 = kt("B", """val x = System.getenv("MY_VAR")""")
+        val f1 = kotlinFile("A", """val x = System.getenv("MY_VAR")""")
+        val f2 = kotlinFile("B", """val x = System.getenv("MY_VAR")""")
         val entries = parser.parse(listOf(f1, f2))
         assertEquals(1, entries.size)
         assertEquals("MY_VAR", entries[0].name)
@@ -86,7 +86,7 @@ class EnvVarParserTest {
 
     @Test
     fun `sortsAlphabetically`() {
-        val file = kt("Config", """
+        val file = kotlinFile("Config", """
             val z = System.getenv("ZEBRA_VAR")
             val a = System.getenv("ALPHA_VAR")
         """.trimIndent())
@@ -96,14 +96,14 @@ class EnvVarParserTest {
 
     @Test
     fun `noEntriesForEmptyFile`() {
-        val file = kt("Empty", "")
+        val file = kotlinFile("Empty", "")
         val entries = parser.parse(listOf(file))
         assertTrue(entries.isEmpty())
     }
 
     @Test
     fun `constValsWithPrivateModifier`() {
-        val file = kt("Config", """
+        val file = kotlinFile("Config", """
             private const val KEY = "PRIVATE_VAR"
             val x = System.getenv(KEY)
         """.trimIndent())
@@ -113,9 +113,54 @@ class EnvVarParserTest {
     }
 
     @Test
+    fun `constValsWithInternalModifier`() {
+        val file = kotlinFile("Config", """
+            internal const val KEY = "INTERNAL_VAR"
+            val x = System.getenv(KEY)
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("INTERNAL_VAR", entries[0].name)
+    }
+
+    @Test
+    fun `constValsWithPublicModifier`() {
+        val file = kotlinFile("Config", """
+            public const val KEY = "PUBLIC_VAR"
+            val x = System.getenv(KEY)
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("PUBLIC_VAR", entries[0].name)
+    }
+
+    @Test
+    fun `constValsWithNoModifier`() {
+        val file = kotlinFile("Config", """
+            const val KEY = "NO_MODIFIER_VAR"
+            val x = System.getenv(KEY)
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("NO_MODIFIER_VAR", entries[0].name)
+    }
+
+    @Test
+    fun `constValsWithMultipleModifiers`() {
+        // e.g. private internal const val — unusual but valid in some contexts
+        val file = kotlinFile("Config", """
+            private internal const val KEY = "MULTI_MODIFIER_VAR"
+            val x = System.getenv(KEY)
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("MULTI_MODIFIER_VAR", entries[0].name)
+    }
+
+    @Test
     fun `collectsConstantsAcrossFiles`() {
-        val f1 = kt("Constants", """const val HOST_KEY = "DB_HOST"""")
-        val f2 = kt("App", """val host = System.getenv(HOST_KEY)""")
+        val f1 = kotlinFile("Constants", """const val HOST_KEY = "DB_HOST"""")
+        val f2 = kotlinFile("App", """val host = System.getenv(HOST_KEY)""")
         val entries = parser.parse(listOf(f1, f2))
         assertEquals(1, entries.size)
         assertEquals("DB_HOST", entries[0].name)
@@ -127,7 +172,7 @@ class EnvVarParserTest {
 
     @Test
     fun `kdocDescriptionIsExtracted`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             /** The database hostname. */
             val host = System.getenv("DB_HOST")
         """.trimIndent())
@@ -137,14 +182,14 @@ class EnvVarParserTest {
 
     @Test
     fun `kdocDescriptionIsNullWhenNoKDoc`() {
-        val file = kt("App", """val host = System.getenv("DB_HOST")""")
+        val file = kotlinFile("App", """val host = System.getenv("DB_HOST")""")
         val entries = parser.parse(listOf(file))
         assertNull(entries[0].description)
     }
 
     @Test
     fun `kdocOverridesInferredDefault`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             /**
              * Port number.
              * @default 9090
@@ -157,7 +202,7 @@ class EnvVarParserTest {
 
     @Test
     fun `kdocRequiredFalseOverridesNoElvis`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             /**
              * Optional setting.
              * @required false
@@ -174,7 +219,7 @@ class EnvVarParserTest {
 
     @Test
     fun `commentedOutGetenvIsIgnored`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             // val host = System.getenv("DB_HOST")
             val port = System.getenv("PORT")
         """.trimIndent())
@@ -186,14 +231,14 @@ class EnvVarParserTest {
     @Test
     fun `getenvAfterInlineCommentMarkerIsIgnored`() {
         // The getenv call appears after a `//` on the same line (unusual but possible in generated code).
-        val file = kt("App", """val x = 42 // System.getenv("COMMENTED_VAR")""")
+        val file = kotlinFile("App", """val x = 42 // System.getenv("COMMENTED_VAR")""")
         val entries = parser.parse(listOf(file))
         assertTrue(entries.isEmpty())
     }
 
     @Test
     fun `getenvBeforeInlineCommentIsDetected`() {
-        val file = kt("App", """val x = System.getenv("REAL_VAR") // trailing comment""")
+        val file = kotlinFile("App", """val x = System.getenv("REAL_VAR") // trailing comment""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("REAL_VAR", entries[0].name)
@@ -201,7 +246,7 @@ class EnvVarParserTest {
 
     @Test
     fun `getenvWithUrlDefaultContainingDoubleSlashIsDetected`() {
-        val file = kt("App", """val url = System.getenv("API_URL") ?: "http://localhost:8080"""")
+        val file = kotlinFile("App", """val url = System.getenv("API_URL") ?: "http://localhost:8080"""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("API_URL", entries[0].name)
@@ -210,7 +255,7 @@ class EnvVarParserTest {
 
     @Test
     fun `doubleSlashInsideStringLiteralBeforeGetenvDoesNotCauseSkip`() {
-        val file = kt("App", """val x = mapOf("url" to "http://example.com", "host" to System.getenv("DB_HOST"))""")
+        val file = kotlinFile("App", """val x = mapOf("url" to "http://example.com", "host" to System.getenv("DB_HOST"))""")
         val entries = parser.parse(listOf(file))
         assertEquals(1, entries.size)
         assertEquals("DB_HOST", entries[0].name)
@@ -254,7 +299,7 @@ class EnvVarParserTest {
 
     @Test
     fun `multiLineElvisDefaultIsDetected`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             val port =
                 System.getenv("PORT")
                     ?: "8080"
@@ -267,7 +312,7 @@ class EnvVarParserTest {
 
     @Test
     fun `multiLineElvisThrowIsDetected`() {
-        val file = kt("App", """
+        val file = kotlinFile("App", """
             val secret =
                 System.getenv("SECRET")
                     ?: throw IllegalStateException("SECRET is required")
@@ -302,7 +347,7 @@ class EnvVarParserTest {
 
     @Test
     fun `sourceFileIsRelativeToBasePath`() {
-        val file = kt("Config", """val x = System.getenv("VAR")""")
+        val file = kotlinFile("Config", """val x = System.getenv("VAR")""")
         val entries = parser.parse(listOf(file), basePath = tempDir)
         assertEquals("Config.kt", entries[0].sourceFile)
     }
@@ -313,7 +358,7 @@ class EnvVarParserTest {
 
     @Test
     fun `collectConstantsReadsFromPreloadedLines`() {
-        val f1 = kt("Consts", """const val MY_KEY = "MY_VALUE"""")
+        val f1 = kotlinFile("Consts", """const val MY_KEY = "MY_VALUE"""")
         val fileLines = mapOf(f1 to f1.readLines())
         val map = parser.collectConstants(fileLines)
         assertEquals("MY_VALUE", map["MY_KEY"])
@@ -321,7 +366,7 @@ class EnvVarParserTest {
 
     @Test
     fun `parseFileAcceptsPreloadedLines`() {
-        val file = kt("App", """val x = System.getenv("PRELOADED_VAR")""")
+        val file = kotlinFile("App", """val x = System.getenv("PRELOADED_VAR")""")
         val lines = file.readLines()
         val entries = parser.parseFile(file, lines, emptyMap())
         assertEquals(1, entries.size)
