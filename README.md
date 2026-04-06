@@ -4,7 +4,7 @@ A Gradle plugin that scans your Kotlin source files for `System.getenv()` calls 
 
 ## Features
 
-- Detects `System.getenv("LITERAL")` and `System.getenv(CONST_REF)` calls across all configured source directories
+- Detects `System.getenv("LITERAL")`, `System.getenv(CONST_REF)`, and `System.getenv().getOrDefault("KEY", "default")` calls across all configured source directories
 - Resolves `const val` references across files (cross-file constant resolution)
 - Reads KDoc comments above `getenv()` calls for descriptions, defaults, and required flags
 - Infers `required` and `default` from Elvis operators (`?: "fallback"`, `?: throw ...`)
@@ -88,12 +88,13 @@ val dbHost = System.getenv("DB_HOST") ?: "localhost"
 | `@required true/false` | Overrides the inferred required flag |
 | `@default <value>` | Overrides the inferred default value |
 
-Without a KDoc comment the plugin infers `required` and `default` from Elvis operators on the same line or the line immediately following the call:
+Without a KDoc comment the plugin infers `required` and `default` from Elvis operators on the same line or the line immediately following the call, or from the second argument of `getOrDefault()`:
 
 ```kotlin
-val port = System.getenv("PORT") ?: "8080"   // → required: no, default: 8080
+val port = System.getenv("PORT") ?: "8080"               // → required: no, default: 8080
 val key  = System.getenv("API_KEY")
-    ?: throw IllegalStateException("API_KEY is required")  // → required: yes
+    ?: throw IllegalStateException("API_KEY is required") // → required: yes
+val host = System.getenv().getOrDefault("DB_HOST", "localhost") // → required: no, default: localhost
 ```
 
 ## CI verification

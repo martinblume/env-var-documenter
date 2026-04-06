@@ -323,6 +323,77 @@ class EnvVarParserTest {
     }
 
     // -------------------------------------------------------------------------
+    // System.getenv().getOrDefault() detection
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `parsesGetOrDefaultWithLiteralKey`() {
+        val file = kotlinFile("App", """val port = System.getenv().getOrDefault("DB_PORT", "5432")""")
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("DB_PORT", entries[0].name)
+        assertEquals("5432", entries[0].default)
+        assertFalse(entries[0].required)
+    }
+
+    @Test
+    fun `parsesGetOrDefaultWithConstRefKey`() {
+        val file = kotlinFile("Config", """
+            const val HOST_KEY = "DB_HOST"
+            val host = System.getenv().getOrDefault(HOST_KEY, "localhost")
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("DB_HOST", entries[0].name)
+        assertEquals("localhost", entries[0].default)
+        assertFalse(entries[0].required)
+    }
+
+    @Test
+    fun `getOrDefaultWithUnresolvedConstRefIsSkipped`() {
+        val file = kotlinFile("App", """val x = System.getenv().getOrDefault(UNDEFINED_KEY, "fallback")""")
+        val entries = parser.parse(listOf(file))
+        assertTrue(entries.isEmpty())
+    }
+
+    @Test
+    fun `kdocDefaultOverridesGetOrDefaultSecondArg`() {
+        val file = kotlinFile("App", """
+            /**
+             * Database host.
+             * @default prod-db
+             */
+            val host = System.getenv().getOrDefault("DB_HOST", "localhost")
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals("prod-db", entries[0].default)
+    }
+
+    @Test
+    fun `kdocRequiredTrueOverridesGetOrDefaultRequired`() {
+        val file = kotlinFile("App", """
+            /**
+             * A required key despite having a getOrDefault fallback.
+             * @required true
+             */
+            val key = System.getenv().getOrDefault("REQUIRED_KEY", "fallback")
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertTrue(entries[0].required)
+    }
+
+    @Test
+    fun `commentedOutGetOrDefaultIsIgnored`() {
+        val file = kotlinFile("App", """
+            // val x = System.getenv().getOrDefault("COMMENTED_KEY", "val")
+            val y = System.getenv("REAL_VAR")
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("REAL_VAR", entries[0].name)
+    }
+
+    // -------------------------------------------------------------------------
     // Charset handling
     // -------------------------------------------------------------------------
 

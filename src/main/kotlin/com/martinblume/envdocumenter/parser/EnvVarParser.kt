@@ -25,6 +25,17 @@ class EnvVarParser {
         """System\.getenv\(\s*([A-Z_][A-Z0-9_]*)\s*\)"""
     )
 
+    // System.getenv() with no args returns the full env Map; .getOrDefault(key, default) reads one entry.
+    // Group 1 = key (literal string), Group 2 = default value.
+    private val getenvGetOrDefaultLiteralRegex = Regex(
+        """System\.getenv\(\s*\)\.getOrDefault\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\)"""
+    )
+
+    // Group 1 = key (SCREAMING_SNAKE_CASE const ref), Group 2 = default value.
+    private val getenvGetOrDefaultConstRefRegex = Regex(
+        """System\.getenv\(\s*\)\.getOrDefault\(\s*([A-Z_][A-Z0-9_]*)\s*,\s*"([^"]*)"\s*\)"""
+    )
+
     private val elvisDefaultRegex = Regex(
         """System\.getenv\([^)]+\)\s*\?:\s*"([^"]*)""""
     )
@@ -119,11 +130,13 @@ class EnvVarParser {
         for ((index, line) in lines.withIndex()) {
             val lineNumber = index + 1
 
-            // Match the getenv() call — literal string arg takes priority over const ref.
-            val literalMatch = getenvLiteralRegex.find(line)
-            val constRefMatch = if (literalMatch == null) getenvConstRefRegex.find(line) else null
+            // Match the getenv() call — priority: literal > getOrDefault-literal > constRef > getOrDefault-constRef.
+            val literalMatch              = getenvLiteralRegex.find(line)
+            val getOrDefaultLiteralMatch  = if (literalMatch == null) getenvGetOrDefaultLiteralRegex.find(line) else null
+            val constRefMatch             = if (literalMatch == null && getOrDefaultLiteralMatch == null) getenvConstRefRegex.find(line) else null
+            val getOrDefaultConstRefMatch = if (literalMatch == null && getOrDefaultLiteralMatch == null && constRefMatch == null) getenvGetOrDefaultConstRefRegex.find(line) else null
 
-            val activeMatch = literalMatch ?: constRefMatch ?: continue
+            val activeMatch = literalMatch ?: getOrDefaultLiteralMatch ?: constRefMatch ?: getOrDefaultConstRefMatch ?: continue
 
             // Skip calls that appear after a `//` line comment on the same line.
             // Uses findLineCommentStart() rather than indexOf("//") to avoid false positives
@@ -133,8 +146,20 @@ class EnvVarParser {
 
             val varName: String? = when {
                 literalMatch != null -> literalMatch.groupValues[1]
+                getOrDefaultLiteralMatch != null -> getOrDefaultLiteralMatch.groupValues[1]
+                constRefMatch != null -> {
+                    val constName = constRefMatch.groupValues[1]
+                    val resolved = constantMap[constName]
+                    if (resolved == null) {
+                        logger.warn(
+                            "env-var-documenter: Unresolved constant reference '$constName' " +
+                                "at $relativeSourcePath:$lineNumber — entry will be skipped."
+                        )
+                    }
+                    resolved
+                }
                 else -> {
-                    val constName = constRefMatch!!.groupValues[1]
+                    val constName = getOrDefaultConstRefMatch!!.groupValues[1]
                     val resolved = constantMap[constName]
                     if (resolved == null) {
                         logger.warn(
@@ -147,29 +172,37 @@ class EnvVarParser {
             }
             if (varName == null) continue
 
-            // --- Infer required/default from Elvis on the same line ---
-            val elvisDefaultMatch = elvisDefaultRegex.find(line)
-            val hasElvisThrow = elvisThrowRegex.containsMatchIn(line)
-
-            // If no Elvis on this line, peek at the next line (multi-line Elvis pattern).
+            // --- Infer required/default ---
             val inferredDefault: String?
             val inferredRequired: Boolean
-            if (elvisDefaultMatch == null && !hasElvisThrow && index + 1 < lines.size) {
-                val nextLine = lines[index + 1]
-                val nextDefault = nextLineElvisDefaultRegex.find(nextLine)
-                val nextThrow = nextLineElvisThrowRegex.containsMatchIn(nextLine)
-                inferredDefault = nextDefault?.groupValues?.get(1)
-                inferredRequired = when {
-                    nextThrow        -> true
-                    nextDefault != null -> false
-                    else             -> true
-                }
+
+            if (getOrDefaultLiteralMatch != null || getOrDefaultConstRefMatch != null) {
+                // The second argument to getOrDefault() is the default value; required is always false.
+                val m = getOrDefaultLiteralMatch ?: getOrDefaultConstRefMatch!!
+                inferredDefault = m.groupValues[2]
+                inferredRequired = false
             } else {
-                inferredDefault = elvisDefaultMatch?.groupValues?.get(1)
-                inferredRequired = when {
-                    hasElvisThrow           -> true
-                    elvisDefaultMatch != null -> false
-                    else                    -> true
+                // Infer from Elvis operator on the same line, or peek at the next line.
+                val elvisDefaultMatch = elvisDefaultRegex.find(line)
+                val hasElvisThrow = elvisThrowRegex.containsMatchIn(line)
+
+                if (elvisDefaultMatch == null && !hasElvisThrow && index + 1 < lines.size) {
+                    val nextLine = lines[index + 1]
+                    val nextDefault = nextLineElvisDefaultRegex.find(nextLine)
+                    val nextThrow = nextLineElvisThrowRegex.containsMatchIn(nextLine)
+                    inferredDefault = nextDefault?.groupValues?.get(1)
+                    inferredRequired = when {
+                        nextThrow           -> true
+                        nextDefault != null -> false
+                        else                -> true
+                    }
+                } else {
+                    inferredDefault = elvisDefaultMatch?.groupValues?.get(1)
+                    inferredRequired = when {
+                        hasElvisThrow             -> true
+                        elvisDefaultMatch != null -> false
+                        else                      -> true
+                    }
                 }
             }
 
