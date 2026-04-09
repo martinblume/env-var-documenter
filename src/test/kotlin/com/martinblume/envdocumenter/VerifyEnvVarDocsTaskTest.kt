@@ -21,7 +21,7 @@ class VerifyEnvVarDocsTaskTest {
     @BeforeEach
     fun setUp() {
         val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-        project.plugins.apply("com.martinblume.env-var-documenter")
+        project.plugins.apply("io.github.martinblume.env-var-documenter")
         verifyTask = project.tasks.getByName("verifyEnvVarDocs") as VerifyEnvVarDocsTask
         generateTask = project.tasks.getByName("generateEnvVarDocs") as GenerateEnvVarDocsTask
         srcDir = File(tempDir, "src/main/kotlin").also { it.mkdirs() }

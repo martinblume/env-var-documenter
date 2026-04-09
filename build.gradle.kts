@@ -4,7 +4,7 @@ plugins {
     id("com.gradle.plugin-publish") version "1.3.1"
 }
 
-group = "com.martinblume"
+group = "io.github.martinblume"
 version = "0.1.0"
 
 repositories {
@@ -34,11 +34,11 @@ gradlePlugin {
 
     plugins {
         create("envVarDocumenter") {
-            id = "com.martinblume.env-var-documenter"
+            id = "io.github.martinblume.env-var-documenter"
             implementationClass = "com.martinblume.envdocumenter.EnvVarDocumenterPlugin"
             displayName = "Env Var Documenter"
-            description = "Scans Kotlin sources for System.getenv() calls and injects a Markdown table into README.md."
-            tags.set(listOf("documentation", "environment-variables", "kotlin", "readme"))
+            description = "Scans Kotlin and Java sources for System.getenv() calls and injects a Markdown table into README.md."
+            tags.set(listOf("documentation", "environment-variables", "kotlin", "java", "readme"))
         }
     }
 }

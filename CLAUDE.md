@@ -4,8 +4,8 @@
 
 A Gradle plugin that scans Kotlin and Java source files for `System.getenv()` calls and injects a Markdown table documenting all environment variables into a README file.
 
-- **Plugin ID**: `com.martinblume.env-var-documenter`
-- **Group/Version**: `com.martinblume` / `0.1.0`
+- **Plugin ID**: `io.github.martinblume.env-var-documenter`
+- **Group/Version**: `io.github.martinblume` / `0.1.0`
 - **Java target**: JVM 17
 - **Published to**: Gradle Plugin Portal
 

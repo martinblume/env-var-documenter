@@ -11,7 +11,7 @@ class EnvVarDocumenterPluginTest {
 
     @BeforeEach
     fun applyPlugin() {
-        project.plugins.apply("com.martinblume.env-var-documenter")
+        project.plugins.apply("io.github.martinblume.env-var-documenter")
     }
 
     // -------------------------------------------------------------------------
@@ -221,7 +221,7 @@ class EnvVarDocumenterPluginTest {
     fun `base plugin applied before env-var-documenter still wires check`() {
         val freshProject = ProjectBuilder.builder().build()
         freshProject.plugins.apply("base")
-        freshProject.plugins.apply("com.martinblume.env-var-documenter")
+        freshProject.plugins.apply("io.github.martinblume.env-var-documenter")
         val checkTask = freshProject.tasks.getByName("check")
         val deps = checkTask.taskDependencies.getDependencies(checkTask).map { it.name }
         assertTrue("verifyEnvVarDocs" in deps)
@@ -237,7 +237,7 @@ class EnvVarDocumenterPluginTest {
         // Covered by the fact that @BeforeEach succeeds, but make it explicit.
         assertDoesNotThrow {
             ProjectBuilder.builder().build().also {
-                it.plugins.apply("com.martinblume.env-var-documenter")
+                it.plugins.apply("io.github.martinblume.env-var-documenter")
             }
         }
     }

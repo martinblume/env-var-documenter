@@ -19,7 +19,7 @@ A Gradle plugin that scans your Kotlin and Java source files for `System.getenv(
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("com.martinblume.env-var-documenter") version "0.1.0"
+    id("io.github.martinblume.env-var-documenter") version "0.1.0"
 }
 ```
 

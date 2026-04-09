@@ -23,7 +23,7 @@ class EnvVarDocumenterFunctionalTest {
         File(testProjectDir, "build.gradle.kts").writeText(
             """
             plugins {
-                id("com.martinblume.env-var-documenter")
+                id("io.github.martinblume.env-var-documenter")
             }
             $extraConfig
             """.trimIndent()
@@ -137,7 +137,7 @@ class EnvVarDocumenterFunctionalTest {
         )
         File(testProjectDir, "build.gradle.kts").writeText(
             """
-            plugins { id("com.martinblume.env-var-documenter") }
+            plugins { id("io.github.martinblume.env-var-documenter") }
             envVarDocumenter {
                 sourceDirs.set(listOf("custom/src"))
             }
@@ -203,7 +203,7 @@ class EnvVarDocumenterFunctionalTest {
         )
         File(testProjectDir, "build.gradle.kts").writeText(
             """
-            plugins { id("com.martinblume.env-var-documenter") }
+            plugins { id("io.github.martinblume.env-var-documenter") }
             envVarDocumenter {
                 sourceDirs.set(listOf("src/main/java"))
             }
