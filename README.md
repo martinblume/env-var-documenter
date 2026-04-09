@@ -1,11 +1,11 @@
 # env-var-documenter
 
-A Gradle plugin that scans your Kotlin source files for `System.getenv()` calls and automatically injects a Markdown table documenting all environment variables into your README.
+A Gradle plugin that scans your Kotlin and Java source files for `System.getenv()` calls and automatically injects a Markdown table documenting all environment variables into your README.
 
 ## Features
 
 - Detects `System.getenv("LITERAL")`, `System.getenv(CONST_REF)`, and `System.getenv().getOrDefault("KEY", "default")` calls across all configured source directories
-- Resolves `const val` references across files (cross-file constant resolution)
+- Resolves `const val` (Kotlin) and `static final String` (Java) references across files (cross-file constant resolution)
 - Reads KDoc comments above `getenv()` calls for descriptions, defaults, and required flags
 - Infers `required` and `default` from Elvis operators (`?: "fallback"`, `?: throw ...`)
 - Deduplicates entries when the same variable is read in multiple places
@@ -69,9 +69,9 @@ envVarDocumenter {
 | `sectionStartMarker` | `<!-- ENV_VARS_START -->` | Marker that begins the generated section |
 | `sectionEndMarker` | `<!-- ENV_VARS_END -->` | Marker that ends the generated section |
 
-## KDoc annotations
+## KDoc / JavaDoc annotations
 
-Add a KDoc comment directly above a `getenv()` call to provide metadata:
+Add a KDoc (Kotlin) or JavaDoc (Java) comment directly above a `getenv()` call to provide metadata — both use the same `/** ... */` format and the same tags:
 
 ```kotlin
 /**

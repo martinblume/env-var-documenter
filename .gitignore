@@ -190,5 +190,8 @@ gradle-app.setting
 # Java heap dump
 *.hprof
 
+# Claude Code — local settings and hooks are machine-specific (absolute paths, personal permissions)
+.claude/
+
 # End of https://www.toptal.com/developers/gitignore/api/kotlin,gradle,java,intellij,macos,git
 

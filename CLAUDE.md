@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A Gradle plugin that scans Kotlin source files for `System.getenv()` calls and injects a Markdown table documenting all environment variables into a README file.
+A Gradle plugin that scans Kotlin and Java source files for `System.getenv()` calls and injects a Markdown table documenting all environment variables into a README file.
 
 - **Plugin ID**: `com.martinblume.env-var-documenter`
 - **Group/Version**: `com.martinblume` / `0.1.0`
@@ -35,7 +35,7 @@ src/main/kotlin/com/martinblume/envdocumenter/
 │   ├── EnvVarEntry.kt             # Data class: name, description, required, default, sourceFile, lineNumber
 │   └── ParsedKDoc.kt              # Data class: description, defaultOverride, requiredOverride
 ├── parser/
-│   ├── EnvVarParser.kt            # Two-pass regex parser for .kt files
+│   ├── EnvVarParser.kt            # Two-pass regex parser for .kt and .java files
 │   └── KDocParser.kt              # Extracts KDoc block above a given line index
 └── readme/
     ├── ReadmeInjector.kt          # Builds Markdown table; inject() / verify() / extractCurrentContent()
@@ -44,17 +44,20 @@ src/main/kotlin/com/martinblume/envdocumenter/
 
 ### Parsing Pipeline (`EnvVarParser`)
 
-1. **Pass 1 — constant collection** (`collectConstants()`): Scans ALL files for `const val NAME = "VALUE"` and builds a lookup map. This enables cross-file constant resolution.
+1. **Pass 1 — constant collection** (`collectConstants()`): Scans ALL files and builds a constant-name → string-value lookup map. Kotlin files use `const val NAME = "VALUE"`; Java files use `public static final String NAME = "value"` (any access modifier, either `static final` / `final static` order). This enables cross-file constant resolution.
 2. **Pass 2 — getenv detection** (`parseFile()`): For each line, matches `System.getenv("LITERAL")` or `System.getenv(CONST_REF)`. Skips calls that appear after `//` on the same line. Peeks at the next line for multi-line Elvis operators.
 
 **Regex patterns** (in `EnvVarParser`):
-- `constValRegex` — captures `const val` with optional access modifiers
+- `constValRegex` — captures Kotlin `const val` with optional access modifiers
+- `javaStaticFinalRegex` — captures Java `(public|private|protected)? (static final|final static) String NAME = "value"` (any access modifier, either modifier order)
 - `getenvLiteralRegex` — literal string argument
 - `getenvConstRefRegex` — `SCREAMING_SNAKE_CASE` identifier only (avoids local variable false positives)
 - `elvisDefaultRegex` / `elvisThrowRegex` — same-line Elvis detection
 - `nextLineElvisDefaultRegex` / `nextLineElvisThrowRegex` — next-line Elvis peek
 
-**KDoc integration** (`KDocParser`): If a `/** ... */` block immediately precedes the line with `getenv()`, it is parsed for:
+`collectConstants()` selects the appropriate regex per file: `javaStaticFinalRegex` for `.java` files, `constValRegex` for everything else.
+
+**KDoc/JavaDoc integration** (`KDocParser`): If a `/** ... */` block immediately precedes the line with `getenv()`, it is parsed for (both Kotlin KDoc and Java JavaDoc use the same `/** ... */` format, so no separate parser is needed):
 - Plain description text
 - `@default <value>` — overrides inferred default
 - `@required false` — overrides inferred required flag
@@ -96,7 +99,7 @@ project.plugins.withId("base") {
 
 | Property | Default |
 |---|---|
-| `sourceDirs` | `["src/main/kotlin"]` |
+| `sourceDirs` | `["src/main/kotlin", "src/main/java"]` |
 | `readmeFile` | `"README.md"` |
 | `sectionStartMarker` | `<!-- ENV_VARS_START -->` |
 | `sectionEndMarker` | `<!-- ENV_VARS_END -->` |
@@ -114,7 +117,7 @@ project.plugins.withId("base") {
 
 ```
 src/test/kotlin/com/martinblume/envdocumenter/
-├── BaseEnvVarDocTaskTest.kt          # Unit tests for base-class helpers (requireReadmeExists, collectKotlinFiles, etc.)
+├── BaseEnvVarDocTaskTest.kt          # Unit tests for base-class helpers (requireReadmeExists, collectSourceFiles, etc.)
 ├── EnvVarDocumenterPluginTest.kt     # Unit tests for plugin registration, extension defaults, property wiring
 ├── GenerateEnvVarDocsTaskTest.kt     # Unit tests for generate() action (ProjectBuilder, direct invocation)
 ├── VerifyEnvVarDocsTaskTest.kt       # Unit tests for verify() action (ProjectBuilder, direct invocation)
@@ -132,6 +135,7 @@ Functional tests build a complete throwaway Gradle project in a `@TempDir` using
 ## Known Gotchas
 
 - **No environment variable name from lowercase identifiers**: `System.getenv(someVar)` is intentionally ignored — only `SCREAMING_SNAKE_CASE` constants are resolved.
-- **Unresolved const references are silently skipped**: If `System.getenv(SOME_CONST)` is used but `SOME_CONST` is not found in any source file in `sourceDirs`, the entry is dropped without warning.
+- **Unresolved const references are warned and skipped**: If `System.getenv(SOME_CONST)` is used but `SOME_CONST` is not found in any source file in `sourceDirs`, the entry is dropped and a `logger.warn()` message is emitted via Gradle's logging API.
 - **`check` wiring is eager**: Uses `getByName` instead of lazy `named(...).configure { }` due to SAM conversion issue — see note in plugin section above. This means the `check` task must already exist when `base` is applied.
 - **Configuration cache**: The plugin is not yet verified as configuration-cache compatible.
+- **Running both tasks in the same invocation**: Running `generateEnvVarDocs` and `verifyEnvVarDocs` in the same `gradle` command causes a Gradle implicit-dependency validation error, because both tasks reference the same `README.md` file without an explicit ordering declaration. Run them in separate invocations.
