@@ -443,4 +443,93 @@ class EnvVarParserTest {
         assertEquals(1, entries.size)
         assertEquals("PRELOADED_VAR", entries[0].name)
     }
+
+    // -------------------------------------------------------------------------
+    // Java file support
+    // -------------------------------------------------------------------------
+
+    private fun javaFile(name: String, content: String): File =
+        File(tempDir, "$name.java").also { it.writeText(content) }
+
+    @Test
+    fun `parsesLiteralGetenvInJavaFile`() {
+        val file = javaFile("Config", """String host = System.getenv("DB_HOST");""")
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("DB_HOST", entries[0].name)
+        assertTrue(entries[0].required)
+    }
+
+    @Test
+    fun `parsesPublicStaticFinalStringConstantInJavaFile`() {
+        val file = javaFile("Constants", """
+            public static final String DB_HOST_KEY = "DATABASE_HOST";
+            String host = System.getenv(DB_HOST_KEY);
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("DATABASE_HOST", entries[0].name)
+    }
+
+    @Test
+    fun `parsesPrivateStaticFinalStringConstantInJavaFile`() {
+        val file = javaFile("Constants", """
+            private static final String SECRET_KEY = "AUTH_SECRET";
+            String secret = System.getenv(SECRET_KEY);
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("AUTH_SECRET", entries[0].name)
+    }
+
+    @Test
+    fun `parsesFinalStaticOrderInJavaFile`() {
+        val file = javaFile("Constants", """
+            final static String PORT_KEY = "SERVER_PORT";
+            String port = System.getenv(PORT_KEY);
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("SERVER_PORT", entries[0].name)
+    }
+
+    @Test
+    fun `javaConstantResolvedCrossFileInKotlinGetenv`() {
+        val javaConst = javaFile("Constants", """public static final String DB_KEY = "DATABASE_URL";""")
+        val ktUsage = kotlinFile("App", """val url = System.getenv(DB_KEY)""")
+        val entries = parser.parse(listOf(javaConst, ktUsage))
+        assertEquals(1, entries.size)
+        assertEquals("DATABASE_URL", entries[0].name)
+    }
+
+    @Test
+    fun `javadocDescriptionAboveGetenvInJavaFileIsExtracted`() {
+        val file = javaFile("Config", """
+            /** The database host. */
+            String host = System.getenv("DB_HOST");
+        """.trimIndent())
+        val entries = parser.parse(listOf(file))
+        assertEquals(1, entries.size)
+        assertEquals("The database host.", entries[0].description)
+    }
+
+    @Test
+    fun `kotlinConstValIsNotMatchedAsJavaStaticFinal`() {
+        // A .kt file must use constValRegex, not javaStaticFinalRegex — no cross-contamination.
+        val ktFile = kotlinFile("Consts", """const val MY_KEY = "MY_VAR"""")
+        val fileLines = mapOf(ktFile to ktFile.readLines())
+        val map = parser.collectConstants(fileLines)
+        assertEquals("MY_VAR", map["MY_KEY"])
+    }
+
+    @Test
+    fun `javaStaticFinalIsNotMatchedInKotlinFile`() {
+        // Even if a .kt file contains text that looks like a Java declaration, it must not be
+        // picked up by javaStaticFinalRegex (which only applies to .java files).
+        val ktFile = kotlinFile("Consts", """public static final String JAVA_STYLE = "VALUE";""")
+        val fileLines = mapOf(ktFile to ktFile.readLines())
+        val map = parser.collectConstants(fileLines)
+        // constValRegex won't match, and javaStaticFinalRegex must not be applied to .kt files
+        assertFalse(map.containsKey("JAVA_STYLE"))
+    }
 }

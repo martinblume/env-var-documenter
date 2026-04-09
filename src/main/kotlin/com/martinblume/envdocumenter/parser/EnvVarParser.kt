@@ -16,6 +16,11 @@ class EnvVarParser {
         """(?:(?:private|internal|public|protected)\s+)*const\s+val\s+(\w+)\s*=\s*"([^"]*)""""
     )
 
+    // Matches Java `public static final String NAME = "value"` (any access modifier, either modifier order)
+    private val javaStaticFinalRegex = Regex(
+        """(?:(?:private|public|protected)\s+)?(?:static\s+final|final\s+static)\s+String\s+(\w+)\s*=\s*"([^"]*)""""
+    )
+
     private val getenvLiteralRegex = Regex(
         """System\.getenv\(\s*"([^"]+)"\s*\)"""
     )
@@ -53,10 +58,10 @@ class EnvVarParser {
     // -------------------------------------------------------------------------
 
     /**
-     * Parse all given Kotlin files and return a deduplicated, alphabetically sorted list of
-     * [EnvVarEntry] values.
+     * Parse all given source files (Kotlin and Java) and return a deduplicated, alphabetically
+     * sorted list of [EnvVarEntry] values.
      *
-     * @param files    Kotlin source files to scan.
+     * @param files    Source files to scan (`.kt` and/or `.java`).
      * @param basePath Root directory used to compute relative [EnvVarEntry.sourceFile] paths.
      *                 Defaults to the current working directory.
      */
@@ -80,12 +85,14 @@ class EnvVarParser {
     // Internal helpers (visible to tests in the same module)
     // -------------------------------------------------------------------------
 
-    /** Pass 1: collect all `const val NAME = "VALUE"` definitions across all files. */
+    /** Pass 1: collect all string constant definitions across all files.
+     *  Kotlin: `const val NAME = "VALUE"`. Java: `static final String NAME = "VALUE"`. */
     internal fun collectConstants(fileLines: Map<File, List<String>>): Map<String, String> {
         val map = mutableMapOf<String, String>()
-        for ((_, lines) in fileLines) {
+        for ((file, lines) in fileLines) {
+            val regex = if (file.extension == "java") javaStaticFinalRegex else constValRegex
             for (line in lines) {
-                constValRegex.find(line)?.let { match ->
+                regex.find(line)?.let { match ->
                     map[match.groupValues[1]] = match.groupValues[2]
                 }
             }

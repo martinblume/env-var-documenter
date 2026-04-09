@@ -80,9 +80,9 @@ class EnvVarDocumenterPluginTest {
     }
 
     @Test
-    fun `extension default sourceDirs is src main kotlin`() {
+    fun `extension default sourceDirs is src main kotlin and src main java`() {
         val ext = project.extensions.getByType(EnvVarDocumenterExtension::class.java)
-        assertEquals(listOf("src/main/kotlin"), ext.sourceDirs.get())
+        assertEquals(listOf("src/main/kotlin", "src/main/java"), ext.sourceDirs.get())
     }
 
     @Test

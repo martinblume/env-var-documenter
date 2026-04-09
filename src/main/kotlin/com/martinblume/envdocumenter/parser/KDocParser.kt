@@ -13,9 +13,9 @@ object KDocParser {
     private const val MAX_LOOKBACK_LINES = 15
 
     /**
-     * Kotlin keyword/modifier prefixes that may legally appear between a KDoc block and the
-     * property or expression it documents. Lines starting with any of these are skipped during
-     * the backward walk.
+     * Kotlin and Java keyword/modifier prefixes that may legally appear between a KDoc/JavaDoc
+     * block and the property or expression it documents. Lines starting with any of these are
+     * skipped during the backward walk.
      */
     private val SKIPPABLE_PREFIXES = setOf(
         // Declarations
@@ -28,6 +28,8 @@ object KDocParser {
         "external ", "expect ", "actual ", "suspend ", "tailrec ",
         "operator ", "infix ", "data ", "enum ", "companion ",
         "inner ", "value ", "annotation ", "object ",
+        // Java-specific
+        "static ",
     )
 
     /**
@@ -50,12 +52,16 @@ object KDocParser {
         if (i < windowStart || !lines[i].trim().endsWith("*/")) return null
 
         val kdocLines = mutableListOf(lines[i])
-        i--
 
-        while (i >= 0) {
-            kdocLines.add(0, lines[i])
-            if (lines[i].trim().startsWith("/**")) break
+        // If this line is both the opening and closing of the comment (single-line /** desc */),
+        // no backward scan is needed — it is already a complete doc comment.
+        if (!lines[i].trim().startsWith("/**")) {
             i--
+            while (i >= 0) {
+                kdocLines.add(0, lines[i])
+                if (lines[i].trim().startsWith("/**")) break
+                i--
+            }
         }
 
         if (!kdocLines.first().trim().startsWith("/**")) return null

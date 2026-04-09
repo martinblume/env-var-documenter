@@ -20,7 +20,7 @@ abstract class VerifyEnvVarDocsTask : BaseEnvVarDocTask() {
 
         requireReadmeExists(readme)
 
-        val entries = parseEntries(collectKotlinFiles())
+        val entries = parseEntries(collectSourceFiles())
 
         try {
             val diff = createInjector().verify(readme, entries)

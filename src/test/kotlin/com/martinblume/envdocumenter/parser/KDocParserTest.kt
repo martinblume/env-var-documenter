@@ -185,4 +185,20 @@ class KDocParserTest {
         assertNotNull(result)
         assertEquals("Boundary KDoc", result!!.description)
     }
+
+    @Test
+    fun `singleLineKDocNotAtLineZeroIsExtracted`() {
+        // Regression: a single-line /** desc */ that is not the first line of the file was
+        // previously corrupted by the backward scan mistakenly adding surrounding lines.
+        val lines = listOf(
+            "class Config {",
+            "    public static final String KEY = \"DB_HOST\";",
+            "    /** The database host. */",
+            "    String host = System.getenv(\"DB_HOST\");",
+            "}",
+        )
+        val result = KDocParser.extractKDocAbove(lines, 3)
+        assertNotNull(result)
+        assertEquals("The database host.", result!!.description)
+    }
 }

@@ -10,7 +10,7 @@ class EnvVarDocumenterPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         // Create the extension and wire in conventions (defaults).
         val extension = project.extensions.create<EnvVarDocumenterExtension>("envVarDocumenter")
-        extension.sourceDirs.convention(listOf("src/main/kotlin"))
+        extension.sourceDirs.convention(listOf("src/main/kotlin", "src/main/java"))
         extension.readmeFile.convention("README.md")
         extension.sectionStartMarker.convention("<!-- ENV_VARS_START -->")
         extension.sectionEndMarker.convention("<!-- ENV_VARS_END -->")

@@ -18,12 +18,12 @@ abstract class GenerateEnvVarDocsTask : BaseEnvVarDocTask() {
 
         requireReadmeExists(readme)
 
-        val kotlinFiles = collectKotlinFiles()
-        if (kotlinFiles.isEmpty()) {
-            logger.warn("env-var-documenter: No Kotlin source files found in configured sourceDirs.")
+        val sourceFiles = collectSourceFiles()
+        if (sourceFiles.isEmpty()) {
+            logger.warn("env-var-documenter: No source files found in configured sourceDirs.")
         }
 
-        val entries = parseEntries(kotlinFiles)
+        val entries = parseEntries(sourceFiles)
         if (entries.isEmpty()) {
             logger.warn("env-var-documenter: No System.getenv() calls found.")
         }

@@ -195,4 +195,43 @@ class EnvVarDocumenterFunctionalTest {
         val result = run("tasks", "--group=documentation")
         assertTrue(result.output.contains("verifyEnvVarDocs"))
     }
+
+    @Test
+    fun `generateEnvVarDocs works with Java source files`() {
+        File(testProjectDir, "settings.gradle.kts").writeText(
+            """rootProject.name = "test-project""""
+        )
+        File(testProjectDir, "build.gradle.kts").writeText(
+            """
+            plugins { id("com.martinblume.env-var-documenter") }
+            envVarDocumenter {
+                sourceDirs.set(listOf("src/main/java"))
+            }
+            """.trimIndent()
+        )
+        File(testProjectDir, "README.md").writeText("<!-- ENV_VARS_START -->\n<!-- ENV_VARS_END -->\n")
+        val javaSrcDir = File(testProjectDir, "src/main/java").also { it.mkdirs() }
+        File(javaSrcDir, "Config.java").writeText(
+            """
+            public class Config {
+                public static final String DB_HOST_KEY = "DATABASE_HOST";
+                /** The primary database hostname. */
+                String host = System.getenv(DB_HOST_KEY);
+                String port = System.getenv("DATABASE_PORT");
+            }
+            """.trimIndent()
+        )
+
+        val result = run("generateEnvVarDocs")
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generateEnvVarDocs")?.outcome)
+
+        val readme = File(testProjectDir, "README.md").readText()
+        assertTrue(readme.contains("DATABASE_HOST"), readme)
+        assertTrue(readme.contains("The primary database hostname."), readme)
+        assertTrue(readme.contains("DATABASE_PORT"), readme)
+
+        // verifyEnvVarDocs must pass on the freshly generated README
+        val verifyResult = run("verifyEnvVarDocs")
+        assertEquals(TaskOutcome.SUCCESS, verifyResult.task(":verifyEnvVarDocs")?.outcome)
+    }
 }

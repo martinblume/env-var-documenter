@@ -51,12 +51,12 @@ The plugin will scan your sources and inject a table between the markers:
 
 ## Configuration
 
-All settings are optional — the defaults work for a standard Kotlin project layout.
+All settings are optional — the defaults work for a standard Kotlin or Java project layout.
 
 ```kotlin
 envVarDocumenter {
-    sourceDirs.set(listOf("src/main/kotlin"))   // directories to scan
-    readmeFile.set("README.md")                 // file to inject into
+    sourceDirs.set(listOf("src/main/kotlin", "src/main/java"))   // directories to scan
+    readmeFile.set("README.md")                                  // file to inject into
     sectionStartMarker.set("<!-- ENV_VARS_START -->")
     sectionEndMarker.set("<!-- ENV_VARS_END -->")
 }
@@ -64,7 +64,7 @@ envVarDocumenter {
 
 | Property | Default | Description |
 |---|---|---|
-| `sourceDirs` | `["src/main/kotlin"]` | Source directories to scan for `.kt` files |
+| `sourceDirs` | `["src/main/kotlin", "src/main/java"]` | Source directories to scan for `.kt` and `.java` files |
 | `readmeFile` | `"README.md"` | Path to the README file (relative to project root) |
 | `sectionStartMarker` | `<!-- ENV_VARS_START -->` | Marker that begins the generated section |
 | `sectionEndMarker` | `<!-- ENV_VARS_END -->` | Marker that ends the generated section |

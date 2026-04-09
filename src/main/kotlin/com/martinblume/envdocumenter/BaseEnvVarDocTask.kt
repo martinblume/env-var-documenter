@@ -15,7 +15,7 @@ import java.io.File
 
 abstract class BaseEnvVarDocTask : DefaultTask() {
 
-    /** Kotlin source directories to scan. Tracked by Gradle for up-to-date checking. */
+    /** Source directories to scan (Kotlin and Java). Tracked by Gradle for up-to-date checking. */
     @get:InputFiles
     abstract val sourceDirs: ConfigurableFileCollection
 
@@ -39,10 +39,10 @@ abstract class BaseEnvVarDocTask : DefaultTask() {
         }
     }
 
-    protected fun collectKotlinFiles(): List<File> =
+    protected fun collectSourceFiles(): List<File> =
         sourceDirs
             .filter { it.isDirectory }
-            .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }
+            .flatMap { dir -> dir.walkTopDown().filter { it.isFile && it.extension in setOf("kt", "java") }.toList() }
 
     protected fun parseEntries(kotlinFiles: List<File>): List<EnvVarEntry> =
         EnvVarParser().parse(kotlinFiles, projectDir.get().asFile)

@@ -16,7 +16,7 @@ import java.io.File
 internal abstract class ConcreteTestTask : BaseEnvVarDocTask() {
     @TaskAction fun run() {}
     fun callRequireReadmeExists(f: File) = requireReadmeExists(f)
-    fun callCollectKotlinFiles(): List<File> = collectKotlinFiles()
+    fun callCollectSourceFiles(): List<File> = collectSourceFiles()
     fun callParseEntries(files: List<File>): List<EnvVarEntry> = parseEntries(files)
     fun callCreateInjector(): ReadmeInjector = createInjector()
 }
@@ -79,58 +79,74 @@ class BaseEnvVarDocTaskTest {
     }
 
     // -------------------------------------------------------------------------
-    // collectKotlinFiles
+    // collectSourceFiles
     // -------------------------------------------------------------------------
 
     @Test
-    fun `collectKotlinFiles returns empty list for empty directory`() {
+    fun `collectSourceFiles returns empty list for empty directory`() {
         val srcDir = File(tempDir, "src").also { it.mkdirs() }
         task.sourceDirs.setFrom(srcDir)
-        assertTrue(task.callCollectKotlinFiles().isEmpty())
+        assertTrue(task.callCollectSourceFiles().isEmpty())
     }
 
     @Test
-    fun `collectKotlinFiles returns kt files from directory`() {
+    fun `collectSourceFiles returns kt files from directory`() {
         val srcDir = File(tempDir, "src").also { it.mkdirs() }
         val ktFile = File(srcDir, "App.kt").also { it.writeText("val x = 1") }
         task.sourceDirs.setFrom(srcDir)
-        assertEquals(listOf(ktFile), task.callCollectKotlinFiles())
+        assertEquals(listOf(ktFile), task.callCollectSourceFiles())
     }
 
     @Test
-    fun `collectKotlinFiles skips non-kt files`() {
+    fun `collectSourceFiles returns java files from directory`() {
         val srcDir = File(tempDir, "src").also { it.mkdirs() }
-        File(srcDir, "App.java").writeText("class App {}")
+        val javaFile = File(srcDir, "App.java").also { it.writeText("class App {}") }
+        task.sourceDirs.setFrom(srcDir)
+        assertEquals(listOf(javaFile), task.callCollectSourceFiles())
+    }
+
+    @Test
+    fun `collectSourceFiles returns both kt and java files`() {
+        val srcDir = File(tempDir, "src").also { it.mkdirs() }
+        File(srcDir, "App.kt").writeText("val x = 1")
+        File(srcDir, "Config.java").writeText("class Config {}")
+        task.sourceDirs.setFrom(srcDir)
+        assertEquals(2, task.callCollectSourceFiles().size)
+    }
+
+    @Test
+    fun `collectSourceFiles skips non-kt and non-java files`() {
+        val srcDir = File(tempDir, "src").also { it.mkdirs() }
         File(srcDir, "config.xml").writeText("<config/>")
         File(srcDir, "notes.txt").writeText("notes")
         task.sourceDirs.setFrom(srcDir)
-        assertTrue(task.callCollectKotlinFiles().isEmpty())
+        assertTrue(task.callCollectSourceFiles().isEmpty())
     }
 
     @Test
-    fun `collectKotlinFiles collects recursively from subdirectories`() {
+    fun `collectSourceFiles collects recursively from subdirectories`() {
         val srcDir = File(tempDir, "src").also { it.mkdirs() }
         val subDir = File(srcDir, "sub").also { it.mkdirs() }
         val ktFile = File(subDir, "Deep.kt").also { it.writeText("val x = 1") }
         task.sourceDirs.setFrom(srcDir)
-        assertEquals(listOf(ktFile), task.callCollectKotlinFiles())
+        assertEquals(listOf(ktFile), task.callCollectSourceFiles())
     }
 
     @Test
-    fun `collectKotlinFiles collects from multiple source directories`() {
+    fun `collectSourceFiles collects from multiple source directories`() {
         val dir1 = File(tempDir, "src1").also { it.mkdirs() }
         val dir2 = File(tempDir, "src2").also { it.mkdirs() }
         File(dir1, "A.kt").writeText("val a = 1")
-        File(dir2, "B.kt").writeText("val b = 2")
+        File(dir2, "B.java").writeText("class B {}")
         task.sourceDirs.setFrom(dir1, dir2)
-        assertEquals(2, task.callCollectKotlinFiles().size)
+        assertEquals(2, task.callCollectSourceFiles().size)
     }
 
     @Test
-    fun `collectKotlinFiles skips entries that are not directories`() {
+    fun `collectSourceFiles skips entries that are not directories`() {
         val plainFile = File(tempDir, "notadir.kt").also { it.writeText("val x = 1") }
         task.sourceDirs.setFrom(plainFile)
-        assertTrue(task.callCollectKotlinFiles().isEmpty())
+        assertTrue(task.callCollectSourceFiles().isEmpty())
     }
 
     // -------------------------------------------------------------------------
